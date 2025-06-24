@@ -8,6 +8,9 @@ use bevy_tnua_avian3d::*;
 mod player;
 use player::{Health, Player, PlayerPlugin};
 
+mod dev_utils;
+use dev_utils::DevUtilsPlugin;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(AssetPlugin {
@@ -23,16 +26,15 @@ fn main() {
             TnuaControllerPlugin::new(FixedUpdate),
             TnuaAvian3dPlugin::new(FixedUpdate),
             PlayerPlugin,
+            // remove dev utils for final build
+            DevUtilsPlugin,
         ))
         .register_type::<(FloatingPlatform, Spikes)>()
         .add_systems(
             Startup,
             (setup_camera_and_lights, setup_level, spawn_health_bar),
         )
-        .add_systems(
-            Update,
-            (draw_player_gizmo, spike_damage_system, update_health_bar),
-        )
+        .add_systems(Update, (spike_damage_system, update_health_bar))
         .run();
 }
 
@@ -96,15 +98,6 @@ fn setup_level(
     commands.spawn(SceneRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("Untitled.glb")),
     ));
-}
-
-fn draw_player_gizmo(mut gizmos: Gizmos, query: Query<&Transform, With<Player>>) {
-    if let Ok(transform) = query.single() {
-        let start = transform.translation + Vec3::Y * 1.0;
-        let forward = transform.forward();
-        let end = start + forward * 1.5;
-        gizmos.arrow(start, end, Color::from(css::DARK_CYAN));
-    }
 }
 
 fn spawn_health_bar(mut commands: Commands) {
