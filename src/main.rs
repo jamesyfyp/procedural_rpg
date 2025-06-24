@@ -23,10 +23,15 @@ fn main() {
             TnuaControllerPlugin::new(FixedUpdate),
             TnuaAvian3dPlugin::new(FixedUpdate),
         ))
-        .register_type::<Player>()
+        .register_type::<(Player, FloatingPlatform)>()
         .add_systems(
             Startup,
-            (setup_camera_and_lights, setup_level, setup_player),
+            (
+                setup_camera_and_lights,
+                setup_level,
+                setup_player,
+                spawn_health_bar,
+            ),
         )
         .add_systems(
             FixedUpdate,
@@ -34,13 +39,35 @@ fn main() {
                 .chain()
                 .in_set(TnuaUserControlsSystemSet),
         )
-        .add_systems(Update, (draw_player_gizmo,))
+        .add_systems(
+            Update,
+            (draw_player_gizmo, damage_player, update_health_bar),
+        )
         .run();
 }
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 struct Player;
+
+#[derive(Component)]
+struct Health(pub f32);
+
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+struct FloatingPlatform;
+
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+struct Spikes {
+    damage: f32,
+}
+
+#[derive(Component)]
+struct HealthBarFill;
+
+#[derive(Component)]
+struct HealthBarText;
 
 // No Tnua-related setup here - this is just normal Bevy stuff.
 fn setup_camera_and_lights(mut commands: Commands) {
@@ -76,22 +103,22 @@ fn setup_camera_and_lights(mut commands: Commands) {
 // No Tnua-related setup here - this is just normal Bevy (and Avian) stuff.
 fn setup_level(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    // mut meshes: ResMut<Assets<Mesh>>,
+    // mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
     commands.spawn(SceneRoot(
         asset_server.load(GltfAssetLabel::Scene(0).from_asset("Untitled.glb")),
     ));
 
-    // Spawn a little platform for the player to jump on.
-    commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(4.0, 0.5, 4.0))),
-        MeshMaterial3d(materials.add(Color::from(css::GRAY))),
-        Transform::from_xyz(-6.0, 2.5, 0.0),
-        RigidBody::Static,
-        Collider::cuboid(4.0, 0.5, 4.0),
-    ));
+    // Spawn a little platform for the player to jump on. doing this in skein now
+    // commands.spawn((
+    //     Mesh3d(meshes.add(Cuboid::new(4.0, 0.5, 4.0))),
+    //     MeshMaterial3d(materials.add(Color::from(css::GRAY))),
+    //     Transform::from_xyz(-6.0, 2.5, 0.0),
+    //     RigidBody::Static,
+    //     Collider::cuboid(4.0, 0.5, 4.0),
+    // ));
 }
 
 fn setup_player(
@@ -105,7 +132,7 @@ fn setup_player(
             half_length: 0.5,
         })),
         MeshMaterial3d(materials.add(Color::from(css::DARK_GOLDENROD))),
-        Transform::from_xyz(0.0, 2.0, 0.0),
+        Transform::from_xyz(0.0, 6.0, 0.0),
         // The player character needs to be configured as a dynamic rigid body of the physics
         // engine.
         RigidBody::Dynamic,
@@ -118,6 +145,7 @@ fn setup_player(
         // By locking the rotation we can prevent this.
         LockedAxes::ROTATION_LOCKED,
         Player,
+        Health(100.0),
     ));
 }
 
@@ -224,11 +252,92 @@ fn always_orbit_camera(
             cam.target_pitch += delta.y * 0.005;
 
             // Clamp pitch (in radians). Example: -1.5 to 1.5 (~-86 to +86 degrees)
-            let min_pitch = 0.0;
+            let min_pitch = -0.25;
             let max_pitch = 1.5;
             cam.target_pitch = cam.target_pitch.clamp(min_pitch, max_pitch);
 
             cam.force_update = true;
         }
+    }
+}
+
+fn spawn_health_bar(mut commands: Commands) {
+    // Parent node (background)
+    let parent = commands
+        .spawn((
+            Node {
+                width: Val::Px(200.0),
+                height: Val::Px(24.0),
+                position_type: PositionType::Absolute,
+                left: Val::Px(200.0), // Move bar horizontally
+                top: Val::Px(200.0),  // Move bar vertically
+                ..default()
+            },
+            BackgroundColor(Color::from(css::DARK_GRAY)),
+        ))
+        .id();
+
+    // Fill node (foreground)
+    let fill = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..default()
+            },
+            BackgroundColor(Color::from(css::GREEN)),
+            HealthBarFill,
+        ))
+        .id();
+
+    // Text node (health value)
+    let text = commands
+        .spawn((
+            Text::new("100"),
+            TextFont {
+                font_size: 100.0,
+                ..default()
+            },
+            TextColor(Color::from(css::WHITE)),
+            TextLayout::new_with_justify(JustifyText::Center),
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(5.0),
+                right: Val::Px(5.0),
+                ..default()
+            },
+            HealthBarText,
+        ))
+        .id();
+
+    // Add children to parent
+    commands.entity(parent).add_children(&[fill, text]);
+}
+
+fn update_health_bar(
+    health_query: Query<&Health, With<Player>>,
+    mut fill_query: Query<&mut Node, With<HealthBarFill>>,
+    mut text_query: Query<&mut Text, With<HealthBarText>>,
+) {
+    if let Ok(health) = health_query.single() {
+        let health_percent = (health.0 / 100.0).clamp(0.0, 1.0);
+
+        // Update fill width
+        if let Ok(mut style) = fill_query.single_mut() {
+            style.width = Val::Percent(health_percent * 100.0);
+        }
+
+        // Update text
+        if let Ok(mut text) = text_query.single_mut() {
+            text.set(Box::new(format!("{:.0}", health.0)) as Box<dyn bevy::prelude::Reflect>);
+            println!("{:.0}", health.0)
+        }
+    }
+}
+
+fn damage_player(mut health_query: Query<&mut Health, With<Player>>) {
+    if let Ok(mut health) = health_query.single_mut() {
+        println!("Player health: {}", health.0);
+        health.0 = (health.0 - 0.005).max(0.0);
     }
 }
