@@ -1,9 +1,17 @@
 use avian3d::prelude::*;
-use bevy::{color::palettes::css, prelude::*};
-use bevy_panorbit_camera::{PanOrbitCamera, PanOrbitCameraPlugin};
+use bevy::prelude::*;
+use bevy_panorbit_camera::PanOrbitCameraPlugin;
 use bevy_skein::SkeinPlugin;
 use bevy_tnua::{builtins::TnuaBuiltinDash, prelude::*};
 use bevy_tnua_avian3d::*;
+
+mod gameplay {
+    pub mod moving_platforms;
+}
+use gameplay::moving_platforms::MovingPlatformPlugin;
+
+mod set_up;
+use set_up::SetupPlugin;
 
 mod player;
 use player::{Health, Player, PlayerPlugin};
@@ -11,36 +19,32 @@ use player::{Health, Player, PlayerPlugin};
 mod dev_utils;
 use dev_utils::DevUtilsPlugin;
 
+mod ui;
+use ui::UiPlugin;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(AssetPlugin {
             watch_for_changes_override: Some(true),
             ..default()
         }))
+        .init_state::<GameState>()
         .add_plugins((
             PhysicsPlugins::default(),
             SkeinPlugin::default(),
-            PanOrbitCameraPlugin,
-            // We need both Tnua's main controller plugin, and the plugin to connect to the physics
-            // backend (in this case Avian 3D)
             TnuaControllerPlugin::new(FixedUpdate),
             TnuaAvian3dPlugin::new(FixedUpdate),
+            PanOrbitCameraPlugin,
+            SetupPlugin,
             PlayerPlugin,
+            UiPlugin,
+            MovingPlatformPlugin,
             // remove dev utils for final build
             DevUtilsPlugin,
         ))
-        .register_type::<(FloatingPlatform, Spikes)>()
-        .add_systems(
-            Startup,
-            (setup_camera_and_lights, setup_level, spawn_health_bar),
-        )
-        .add_systems(Update, (spike_damage_system, update_health_bar))
+        .add_systems(Update, spike_damage_system)
         .run();
 }
-
-#[derive(Component, Reflect)]
-#[reflect(Component)]
-struct FloatingPlatform;
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
@@ -48,137 +52,16 @@ struct Spikes {
     damage: f32,
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
 pub struct SpikeDamageCooldown(Timer);
 
-#[derive(Component)]
-struct HealthBarFill;
-
-#[derive(Component)]
-struct HealthBarText;
-
-// No Tnua-related setup here - this is just normal Bevy stuff.
-fn setup_camera_and_lights(mut commands: Commands) {
-    commands.spawn((
-        Transform::from_translation(Vec3::new(0.0, 1.5, 5.0)),
-        PanOrbitCamera {
-            // Panning the camera changes the focus, and so you most likely want to disable
-            // panning when setting the focus manually
-            pan_sensitivity: 0.0,
-            // If you want to fully control the camera's focus, set smoothness to 0 so it
-            // immediately snaps to that location. If you want the 'follow' to be smoothed,
-            // leave this at default or set it to something between 0 and 1.
-            pan_smoothness: 0.0,
-            orbit_sensitivity: 0.0,
-            zoom_sensitivity: 0.0,
-            ..default()
-        },
-    ));
-
-    commands.spawn((PointLight::default(), Transform::from_xyz(5.0, 5.0, 5.0)));
-
-    // A directly-down light to tell where the player is going to land.
-    commands.spawn((
-        DirectionalLight {
-            illuminance: 4000.0,
-            shadows_enabled: true,
-            ..Default::default()
-        },
-        Transform::default().looking_at(-Vec3::Y, Vec3::Z),
-    ));
+#[derive(States, Debug, Clone, Eq, PartialEq, Hash, Default)]
+pub enum GameState {
+    #[default]
+    Loading,
+    InGame,
 }
-
-// No Tnua-related setup here - this is just normal Bevy (and Avian) stuff.
-fn setup_level(
-    mut commands: Commands,
-    // mut meshes: ResMut<Assets<Mesh>>,
-    // mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
-) {
-    commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset("Untitled.glb")),
-    ));
-}
-
-fn spawn_health_bar(mut commands: Commands) {
-    // Parent node (background)
-    let parent = commands
-        .spawn((
-            Node {
-                width: Val::Px(200.0),
-                height: Val::Px(24.0),
-                position_type: PositionType::Absolute,
-                left: Val::Px(200.0), // Move bar horizontally
-                top: Val::Px(200.0),  // Move bar vertically
-                ..default()
-            },
-            BackgroundColor(Color::from(css::DARK_GRAY)),
-        ))
-        .id();
-
-    // Fill node (foreground)
-    let fill = commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                ..default()
-            },
-            BackgroundColor(Color::from(css::GREEN)),
-            HealthBarFill,
-        ))
-        .id();
-
-    // Text node (health value)
-    let text = commands
-        .spawn((
-            Text::new("100"),
-            TextFont {
-                font_size: 100.0,
-                ..default()
-            },
-            TextColor(Color::from(css::WHITE)),
-            TextLayout::new_with_justify(JustifyText::Center),
-            Node {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(5.0),
-                right: Val::Px(5.0),
-                ..default()
-            },
-            HealthBarText,
-        ))
-        .id();
-
-    // Add children to parent
-    commands.entity(parent).add_children(&[fill, text]);
-}
-
-fn update_health_bar(
-    health_query: Query<&Health, With<Player>>,
-    mut fill_query: Query<&mut Node, With<HealthBarFill>>,
-    mut text_query: Query<&mut Text, With<HealthBarText>>,
-) {
-    if let Ok(health) = health_query.single() {
-        let health_percent = (health.0 / 100.0).clamp(0.0, 1.0);
-
-        // Update fill width
-        if let Ok(mut style) = fill_query.single_mut() {
-            style.width = Val::Percent(health_percent * 100.0);
-        }
-
-        // Update text
-        if let Ok(mut text) = text_query.single_mut() {
-            text.0 = format!("{:.0}", health.0);
-        }
-    }
-}
-
-// this is for refference
-// fn damage_player(mut health_query: Query<&mut Health, With<Player>>) {
-//     if let Ok(mut health) = health_query.single_mut() {
-//         health.0 = (health.0 - 0.005).max(0.0);
-//     }
-// }
 
 fn spike_damage_system(
     time: Res<Time>,

@@ -7,25 +7,31 @@ use bevy_tnua::{
 };
 use bevy_tnua_avian3d::*;
 
+use crate::GameState;
+
 use crate::SpikeDamageCooldown;
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct Player;
 
-#[derive(Component)]
+#[derive(Component, Reflect)]
+#[reflect(Component)]
 pub struct Health(pub f32);
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_player).add_systems(
-            FixedUpdate,
-            (apply_controls, cam_follow_and_face, always_orbit_camera)
-                .chain()
-                .in_set(TnuaUserControlsSystemSet),
-        );
+        app.register_type::<(Player, Health)>()
+            .add_systems(OnEnter(GameState::Loading), setup_player)
+            .add_systems(
+                FixedUpdate,
+                (apply_controls, cam_follow_and_face, always_orbit_camera)
+                    .chain()
+                    .in_set(TnuaUserControlsSystemSet)
+                    .run_if(in_state(GameState::InGame)),
+            );
     }
 }
 
@@ -40,7 +46,8 @@ fn setup_player(
             half_length: 0.5,
         })),
         MeshMaterial3d(materials.add(Color::from(css::DARK_GOLDENROD))),
-        Transform::from_xyz(0.0, 6.0, 0.0),
+        //TODO: FIX HEIGHT WHEN YOU SET UP LOADING
+        Transform::from_xyz(0.0, 2.0, 0.0),
         // The player character needs to be configured as a dynamic rigid body of the physics
         // engine.
         RigidBody::Dynamic,
@@ -148,8 +155,11 @@ fn cam_follow_and_face(
     if let (Ok(mut pan_orbit), Ok(mut player_tfm)) =
         (pan_orbit_q.single_mut(), player_q.single_mut())
     {
-        // Make camera follow player
-        pan_orbit.target_focus = player_tfm.translation;
+        // Smoothly follow player
+        let smoothing = 0.15;
+        pan_orbit.target_focus = pan_orbit
+            .target_focus
+            .lerp(player_tfm.translation, smoothing);
         pan_orbit.force_update = true;
 
         // Rotate player to match camera yaw (around Y axis)
