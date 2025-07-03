@@ -6,9 +6,12 @@ use bevy_tnua::{builtins::TnuaBuiltinDash, prelude::*};
 use bevy_tnua_avian3d::*;
 
 mod gameplay {
+    pub mod attacks;
     pub mod enemies;
-    pub mod moving_platforms;
+    pub mod moving_platforms; // <-- Add this line!
 }
+
+use gameplay::attacks::fireball::FireballPlugin;
 use gameplay::enemies::melee_creep::MeleeCreepPlugin;
 use gameplay::moving_platforms::MovingPlatformPlugin;
 
@@ -42,6 +45,7 @@ fn main() {
             UiPlugin,
             MovingPlatformPlugin,
             MeleeCreepPlugin,
+            FireballPlugin,
             // remove dev utils for final build
             DevUtilsPlugin,
         ))

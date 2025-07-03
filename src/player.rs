@@ -10,6 +10,7 @@ use bevy_tnua_avian3d::*;
 use crate::GameState;
 
 use crate::SpikeDamageCooldown;
+use crate::gameplay::attacks::fireball::spawn_fireball;
 
 #[derive(Component, Reflect)]
 #[reflect(Component)]
@@ -46,7 +47,6 @@ fn setup_player(
             half_length: 0.5,
         })),
         MeshMaterial3d(materials.add(Color::from(css::DARK_GOLDENROD))),
-        //TODO: FIX HEIGHT WHEN YOU SET UP LOADING
         Transform::from_xyz(0.0, 2.0, 0.0),
         // The player character needs to be configured as a dynamic rigid body of the physics
         // engine.
@@ -68,8 +68,12 @@ fn setup_player(
 
 fn apply_controls(
     keyboard: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
     mut query: Query<&mut TnuaController, With<Player>>,
     tfm_q: Query<&Transform, With<Player>>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let Ok(mut controller) = query.single_mut() else {
         return;
@@ -77,6 +81,24 @@ fn apply_controls(
     let Ok(transform) = tfm_q.single() else {
         return;
     };
+
+    // --- ATTACK ---
+    if mouse.just_pressed(MouseButton::Left) {
+        let fireball_speed = 20.0;
+        let fireball_damage = 25.0;
+        let spawn_pos = transform.translation + transform.forward() * 1.5;
+        let fireball_dir = transform.forward();
+
+        spawn_fireball(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            spawn_pos,
+            fireball_dir,
+            fireball_damage,
+            fireball_speed,
+        );
+    }
 
     // --- JUMP ---
     if keyboard.pressed(KeyCode::Space) {
