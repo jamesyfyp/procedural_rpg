@@ -1,7 +1,6 @@
 use avian3d::prelude::*;
 use bevy::{color::palettes::css, prelude::*};
-
-use crate::GameState;
+use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
 pub struct DevUtilsPlugin;
 
@@ -10,9 +9,24 @@ use crate::player::Player;
 
 impl Plugin for DevUtilsPlugin {
     fn build(&self, app: &mut App) {
+        app.insert_resource(InspectorActive(false));
         app.add_plugins(PhysicsDebugPlugin::default())
             .add_systems(Update, draw_player_gizmo);
+        app.add_plugins((
+            EguiPlugin {
+                enable_multipass_for_primary_context: true,
+            },
+            WorldInspectorPlugin::new().run_if(is_inspector_active),
+        ));
+        // Uncomment this to see the player health decrease over tim
     }
+}
+
+#[derive(Resource, Debug, Default, Eq, PartialEq)]
+struct InspectorActive(bool);
+
+fn is_inspector_active(inspector_active: Res<InspectorActive>) -> bool {
+    inspector_active.0
 }
 
 fn draw_player_gizmo(mut gizmos: Gizmos, query: Query<&Transform, With<Player>>) {
@@ -30,7 +44,3 @@ fn draw_player_gizmo(mut gizmos: Gizmos, query: Query<&Transform, With<Player>>)
 //         health.0 = (health.0 - 0.005).max(0.0);
 //     }
 // }
-
-pub fn debug_print_game_state(state: Res<State<GameState>>) {
-    println!("Current GameState: {:?}", state.get());
-}

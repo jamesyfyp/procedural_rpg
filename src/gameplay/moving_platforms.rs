@@ -76,20 +76,9 @@ fn setup_platform_paths(
             waypoints.sort_by_key(|(index, _)| *index);
             // Append the sorted waypoints
             locations.extend(waypoints.iter().map(|(_, pos)| *pos));
-            println!(
-                "  -> Added {} waypoints for group '{}': {:?}",
-                waypoints.len(),
-                group.0,
-                locations
-            );
         } else {
             warn!("No waypoints found for platform group '{}'", group.0);
         }
-
-        println!(
-            "Setting up platform path for group '{}': locations={:?}",
-            group.0, locations,
-        );
 
         commands
             .entity(platform_entity)

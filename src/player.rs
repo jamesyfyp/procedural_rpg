@@ -24,7 +24,7 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<(Player, Health)>()
-            .add_systems(OnEnter(GameState::Loading), setup_player)
+            .add_systems(OnEnter(GameState::InGame), setup_player)
             .add_systems(
                 FixedUpdate,
                 (apply_controls, cam_follow_and_face, always_orbit_camera)
@@ -59,6 +59,7 @@ fn setup_player(
         // Tnua can fix the rotation, but the character will still get rotated before it can do so.
         // By locking the rotation we can prevent this.
         LockedAxes::ROTATION_LOCKED,
+        CollisionEventsEnabled,
         Player,
         Health(100.0),
         SpikeDamageCooldown(Timer::from_seconds(1.0, TimerMode::Once)),

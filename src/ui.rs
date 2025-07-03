@@ -1,12 +1,18 @@
 use bevy::{color::palettes::css, prelude::*};
 
-use crate::player::{Health, Player};
+use crate::{
+    GameState,
+    player::{Health, Player},
+};
 
 pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_health_bar);
-        app.add_systems(Update, update_health_bar);
+        app.add_systems(OnEnter(GameState::InGame), spawn_health_bar);
+        app.add_systems(
+            Update,
+            update_health_bar.run_if(in_state(GameState::InGame)),
+        );
     }
 }
 

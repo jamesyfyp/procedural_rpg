@@ -49,7 +49,7 @@ fn setup_camera_and_lights(mut commands: Commands) {
 }
 
 fn load_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let handle = asset_server.load(GltfAssetLabel::Scene(0).from_asset("Untitled.glb"));
+    let handle = asset_server.load(GltfAssetLabel::Scene(0).from_asset("Untitled.gltf"));
     commands.insert_resource(SceneHandle(handle));
 }
 
@@ -65,14 +65,7 @@ fn check_scene_loaded(
 ) {
     if let Some(handle) = scene_handle {
         if asset_server.is_loaded(&handle.0) && !waypoint_query.is_empty() {
-            println!("Scene loaded and waypoints present! Transitioning to InGame.");
             next_state.set(GameState::InGame);
-        } else {
-            println!(
-                "Waiting: loaded={} waypoints={}",
-                asset_server.is_loaded(&handle.0),
-                waypoint_query.iter().count()
-            );
         }
     }
 }

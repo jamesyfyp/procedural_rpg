@@ -6,8 +6,10 @@ use bevy_tnua::{builtins::TnuaBuiltinDash, prelude::*};
 use bevy_tnua_avian3d::*;
 
 mod gameplay {
+    pub mod enemies;
     pub mod moving_platforms;
 }
+use gameplay::enemies::melee_creep::MeleeCreepPlugin;
 use gameplay::moving_platforms::MovingPlatformPlugin;
 
 mod set_up;
@@ -39,6 +41,7 @@ fn main() {
             PlayerPlugin,
             UiPlugin,
             MovingPlatformPlugin,
+            MeleeCreepPlugin,
             // remove dev utils for final build
             DevUtilsPlugin,
         ))
