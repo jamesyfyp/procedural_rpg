@@ -24,7 +24,11 @@ impl Plugin for MeleeCreepPlugin {
             .register_type::<MeleeCreep>()
             .add_systems(
                 Update,
-                (melee_creep_movement_system, melee_creep_damage_system)
+                (
+                    melee_creep_movement_system,
+                    melee_creep_damage_system,
+                    enemy_death_system,
+                )
                     .run_if(in_state(GameState::InGame)),
             );
     }
@@ -102,7 +106,6 @@ fn melee_creep_damage_system(
 
         // Damage the player
         player_health.0 -= creep.damage;
-        println!("Player hit by melee creep! Health: {}", player_health.0);
 
         // Knockback: push player away from creep
         let mut knockback_dir = player_transform.translation() - creep_transform.translation();
@@ -111,5 +114,13 @@ fn melee_creep_damage_system(
 
         let knockback = knockback_dir.normalize_or_zero() * knockback_strength;
         player_velocity.0 += knockback;
+    }
+}
+
+fn enemy_death_system(mut commands: Commands, query: Query<(Entity, &Enemy)>) {
+    for (entity, enemy) in &query {
+        if enemy.health <= 0.0 {
+            commands.entity(entity).despawn();
+        }
     }
 }

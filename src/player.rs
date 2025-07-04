@@ -26,6 +26,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<(Player, Health)>()
             .add_systems(OnEnter(GameState::InGame), setup_player)
+            .add_systems(Update, apply_attacks.run_if(in_state(GameState::InGame)))
             .add_systems(
                 FixedUpdate,
                 (apply_controls, cam_follow_and_face, always_orbit_camera)
@@ -68,12 +69,8 @@ fn setup_player(
 
 fn apply_controls(
     keyboard: Res<ButtonInput<KeyCode>>,
-    mouse: Res<ButtonInput<MouseButton>>,
     mut query: Query<&mut TnuaController, With<Player>>,
     tfm_q: Query<&Transform, With<Player>>,
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let Ok(mut controller) = query.single_mut() else {
         return;
@@ -81,24 +78,6 @@ fn apply_controls(
     let Ok(transform) = tfm_q.single() else {
         return;
     };
-
-    // --- ATTACK ---
-    if mouse.just_pressed(MouseButton::Left) {
-        let fireball_speed = 20.0;
-        let fireball_damage = 25.0;
-        let spawn_pos = transform.translation + transform.forward() * 1.5;
-        let fireball_dir = transform.forward();
-
-        spawn_fireball(
-            &mut commands,
-            &mut meshes,
-            &mut materials,
-            spawn_pos,
-            fireball_dir,
-            fireball_damage,
-            fireball_speed,
-        );
-    }
 
     // --- JUMP ---
     if keyboard.pressed(KeyCode::Space) {
@@ -148,6 +127,34 @@ fn apply_controls(
     });
 }
 
+fn apply_attacks(
+    mouse: Res<ButtonInput<MouseButton>>,
+    tfm_q: Query<&Transform, With<Player>>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let Ok(transform) = tfm_q.single() else {
+        return;
+    };
+
+    if mouse.just_pressed(MouseButton::Left) {
+        let fireball_speed = 20.0;
+        let fireball_damage = 25.0;
+        let spawn_pos = transform.translation + transform.forward() * 1.5;
+        let fireball_dir = transform.forward();
+        spawn_fireball(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            spawn_pos,
+            fireball_dir,
+            fireball_damage,
+            fireball_speed,
+        );
+    }
+}
+
 fn always_orbit_camera(
     mut panorbit_query: Query<&mut PanOrbitCamera>,
     mut mouse_motion_events: EventReader<MouseMotion>,
@@ -178,11 +185,20 @@ fn cam_follow_and_face(
     if let (Ok(mut pan_orbit), Ok(mut player_tfm)) =
         (pan_orbit_q.single_mut(), player_q.single_mut())
     {
-        // Smoothly follow player
-        let smoothing = 0.15;
+        // --- Offset config ---
+        // Offset to the right (X) and/or up (Y) in world space.
+        // Positive X is right, positive Y is up.
+        let side_offset = 0.5; // Move camera target 0.5 units to the right of the player
+        let up_offset = 0.5; // Or try 1.0 for a slightly higher view
+        let z_offset = -1.25; // No offset in the Z direction
+        // Calculate offset in the player's local space (so it follows player rotation)
+        let offset = player_tfm.rotation * Vec3::new(side_offset, up_offset, z_offset);
+
+        // Smoothly follow player with offset
+        let smoothing = 0.9;
         pan_orbit.target_focus = pan_orbit
             .target_focus
-            .lerp(player_tfm.translation, smoothing);
+            .lerp(player_tfm.translation + offset, smoothing);
         pan_orbit.force_update = true;
 
         // Rotate player to match camera yaw (around Y axis)
