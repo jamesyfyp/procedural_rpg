@@ -9,7 +9,6 @@ use bevy_tnua_avian3d::*;
 
 use crate::GameState;
 
-use crate::SpikeDamageCooldown;
 use crate::gameplay::attacks::fireball::spawn_fireball;
 
 #[derive(Component, Reflect)]
@@ -63,7 +62,6 @@ fn setup_player(
         CollisionEventsEnabled,
         Player,
         Health(100.0),
-        SpikeDamageCooldown(Timer::from_seconds(1.0, TimerMode::Once)),
     ));
 }
 
@@ -191,7 +189,7 @@ fn cam_follow_and_face(
         let side_offset = 0.5; // Move camera target 0.5 units to the right of the player
         let up_offset = 0.5; // Or try 1.0 for a slightly higher view
         let z_offset = -1.25; // No offset in the Z direction
-        // Calculate offset in the player's local space (so it follows player rotation)
+                              // Calculate offset in the player's local space (so it follows player rotation)
         let offset = player_tfm.rotation * Vec3::new(side_offset, up_offset, z_offset);
 
         // Smoothly follow player with offset

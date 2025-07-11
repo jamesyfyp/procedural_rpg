@@ -2,7 +2,7 @@ use avian3d::prelude::*;
 use bevy::{color::palettes::css, prelude::*};
 
 use crate::GameState;
-use crate::gameplay::enemies::melee_creep::Enemy;
+use crate::gameplay::enemies::melee_creeps::melee_creep::Enemy;
 
 pub struct FireballPlugin;
 
