@@ -12,14 +12,7 @@ impl Plugin for MovingPlatformPlugin {
         app.register_type::<MovingPlatform>()
             .register_type::<PlatformWaypoint>()
             .register_type::<PlatformGroup>()
-            .add_systems(
-                OnEnter(GameState::InGame),
-                (
-                    setup_platform_paths,
-                    //debug_platform_waypoints,
-                    //debug_print_game_state,
-                ),
-            )
+            .add_systems(OnEnter(GameState::InGame), (setup_platform_paths,))
             .add_systems(
                 Update,
                 moving_platform_system.run_if(in_state(GameState::InGame)),

@@ -2,7 +2,7 @@ use avian3d::prelude::*;
 use bevy::{color::palettes::css, prelude::*};
 
 use crate::GameState;
-use crate::gameplay::enemies::melee_creeps::melee_creep::Enemy;
+use crate::gameplay::enemies::enemy::Enemy;
 
 pub struct FireballPlugin;
 
@@ -60,7 +60,6 @@ fn fireball_collision_system(
         let fireball = fireball_query.get(fireball_entity).unwrap();
         if let Ok((mut enemy, enemy_entity)) = enemy_query.get_mut(enemy_entity) {
             enemy.health -= fireball.damage;
-            println!("Enemy hit! Health: {}", enemy.health);
             commands.entity(fireball_entity).despawn();
         }
     }

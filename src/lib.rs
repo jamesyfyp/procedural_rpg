@@ -12,7 +12,7 @@ mod gameplay {
 }
 
 use gameplay::attacks::fireball::FireballPlugin;
-use gameplay::enemies::melee_creeps::melee_creep::MeleeCreepPlugin;
+use gameplay::enemies::enemy::EnemyPlugin;
 use gameplay::moving_platforms::MovingPlatformPlugin;
 
 mod set_up;
@@ -53,9 +53,9 @@ impl Plugin for AppPlugin {
             PlayerPlugin,
             UiPlugin,
             MovingPlatformPlugin,
-            MeleeCreepPlugin,
+            EnemyPlugin,
             FireballPlugin,
-            DevUtilsPlugin,
+            // DevUtilsPlugin,
         ));
     }
 }
